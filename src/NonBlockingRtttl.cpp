@@ -14,6 +14,7 @@
 namespace rtttl
 {
 
+
 const int notes[] = { 0,
 NOTE_C4, NOTE_CS4, NOTE_D4, NOTE_DS4, NOTE_E4, NOTE_F4, NOTE_FS4, NOTE_G4, NOTE_GS4, NOTE_A4, NOTE_AS4, NOTE_B4,
 NOTE_C5, NOTE_CS5, NOTE_D5, NOTE_DS5, NOTE_E5, NOTE_F5, NOTE_FS5, NOTE_G5, NOTE_GS5, NOTE_A5, NOTE_AS5, NOTE_B5,
@@ -23,6 +24,11 @@ NOTE_C7, NOTE_CS7, NOTE_D7, NOTE_DS7, NOTE_E7, NOTE_F7, NOTE_FS7, NOTE_G7, NOTE_
 
 //#define isdigit(n) (n >= '0' && n <= '9')
 #define OCTAVE_OFFSET 0
+
+const char * _headBuffer=0;
+bool _flashBuffer=false;
+
+char _auxBuff[MAX_RTTTL_LOCAL_BUFF];
 
 const char * buffer = "";
 int bufferIndex = -32760;
@@ -34,8 +40,9 @@ byte pin = -1;
 unsigned long noteDelay = 0; //m will always be after which means the last note is done playing
 bool playing = false;
 
+
 //pre-declaration
-void nextnote();
+int  nextnote();
 
 // tone() and noTone() are not implemented for Arduino core for the ESP32
 // See https://github.com/espressif/arduino-esp32/issues/980
@@ -59,20 +66,48 @@ void tone(int pin, int frq, int duration){
 }
 #endif
 
-void begin(byte iPin, const char * iSongBuffer)
+
+void beginF(byte iPin, const char * iSongBuffer)
 {
+//DUMMY workaround that need long buffer in ram strncpy_P(_auxBuff,iSongBuffer,MAX_RTTTL_LOCAL_BUFF);
+//Better implementation just reading by chunks, ram needed is only the chunk.
+return begin(iPin,iSongBuffer,true);
+}
+
+
+void begin(byte iPin, const char * iSongBuffer,bool flash )
+{
+  _headBuffer=iSongBuffer;
+  _flashBuffer=flash;
+  _auxBuff[MAX_RTTTL_LOCAL_BUFF-1]=0;
+  if (_flashBuffer) {
+    strncpy_P(_auxBuff,_headBuffer,MAX_RTTTL_LOCAL_BUFF-1);
+  }
+  else {
+    strncpy(_auxBuff,_headBuffer,MAX_RTTTL_LOCAL_BUFF-1);
+  }    
+
   #ifdef RTTTL_NONBLOCKING_DEBUG
   Serial.print("playing: ");
-  Serial.println(iSongBuffer);
+  Serial.print(_auxBuff);
+  Serial.println("...");
+  Serial.print("BUFFER ADDR: ");
+  Serial.print((int)_headBuffer);
+  Serial.print(" FLASH ");
+  Serial.println(_flashBuffer);
   #endif
-    
+
+  
   //init values
   pin = iPin;
   #if defined(ESP32)
   ledcSetup(0, 1000, 10); // resolution always seems to be 10bit, no matter what is given
   ledcAttachPin(pin, 0);
   #endif
-  buffer = iSongBuffer;
+  /* <ringing-tones-text-transfer-language> := <name> <sep> [<defaults>] <sep> <note-command>+ */
+
+
+  buffer = _auxBuff;
   bufferIndex = 0;
   default_dur = 4;
   default_oct = 6;
@@ -93,20 +128,28 @@ void begin(byte iPin, const char * iSongBuffer)
   // format: d=N,o=N,b=NNN:
   // find the start (skip name, etc)
 
-  while(*buffer != ':') buffer++;    // ignore name
-  buffer++;                     // skip ':'
+  while(*buffer != ':') // ignore name 
+  { 
+    buffer++;                    
+    bufferIndex++;
+  }
+  buffer++; // skip ':'
+  bufferIndex++;
 
   // get default duration
   if(*buffer == 'd')
-  {
+  {    
     buffer++; buffer++;              // skip "d="
+    bufferIndex+=2; 
     num = 0;
     while(isdigit(*buffer))
     {
       num = (num * 10) + (*buffer++ - '0');
+      bufferIndex++; 
     }
     if(num > 0) default_dur = num;
     buffer++;                   // skip comma
+    bufferIndex++; 
   }
 
   #ifdef RTTTL_NONBLOCKING_INFO
@@ -117,9 +160,12 @@ void begin(byte iPin, const char * iSongBuffer)
   if(*buffer == 'o')
   {
     buffer++; buffer++;              // skip "o="
+    bufferIndex+=2; 
     num = *buffer++ - '0';
+    bufferIndex++;
     if(num >= 3 && num <=7) default_oct = num;
     buffer++;                   // skip comma
+    bufferIndex++; 
   }
 
   #ifdef RTTTL_NONBLOCKING_INFO
@@ -130,13 +176,16 @@ void begin(byte iPin, const char * iSongBuffer)
   if(*buffer == 'b')
   {
     buffer++; buffer++;              // skip "b="
+    bufferIndex+=2; 
     num = 0;
     while(isdigit(*buffer))
     {
       num = (num * 10) + (*buffer++ - '0');
+      bufferIndex++; 
     }
     bpm = num;
     buffer++;                   // skip colon
+    bufferIndex++; 
   }
 
   #ifdef RTTTL_NONBLOCKING_INFO
@@ -149,13 +198,63 @@ void begin(byte iPin, const char * iSongBuffer)
   #ifdef RTTTL_NONBLOCKING_INFO
   Serial.print("wn: "); Serial.println(wholenote, 10);
   #endif
+
+
+  #ifdef RTTTL_NONBLOCKING_DEBUG
+  Serial.print("RTTTL index: ");
+  Serial.println(bufferIndex);
+  Serial.print("BUFFER ADDR: ");
+  Serial.print((int)_headBuffer);
+  Serial.print(" FLASH ");
+  Serial.println(_flashBuffer);
+  #endif
 }
 
-void nextnote()
+int nextnote()
 {
   long duration;
   byte note;
   byte scale;
+  char aux;
+
+  #ifdef RTTTL_NONBLOCKING_DEBUG
+  Serial.print("RTTTL index: ");
+  Serial.println(bufferIndex);
+  Serial.print("BUFFER ADDR: ");
+  Serial.print((int)_headBuffer);
+  Serial.print(" FLASH ");
+  Serial.println(_flashBuffer);
+  #endif
+
+  for(int i=0;i<10;i++){
+    if (_flashBuffer) {
+      aux=pgm_read_byte_near(_headBuffer + bufferIndex + i);
+    }
+    else {
+      aux=_headBuffer[bufferIndex+i];
+    }
+    _auxBuff[i]=aux;
+    if ((aux == 0) || (aux == ',')) { _auxBuff[i]=0; break; }
+  }
+
+
+  buffer=_auxBuff;
+  if (_auxBuff[0]==0) {
+    #ifdef RTTTL_NONBLOCKING_DEBUG
+    Serial.println("No more notes");
+    #endif
+    return -1;  //No more tones
+  }  
+
+
+  #ifdef RTTTL_NONBLOCKING_DEBUG
+  Serial.print("nextNote: ");
+  Serial.print(_auxBuff);
+  Serial.println("...");
+  #endif
+
+
+
 
   //stop current note
   noTone(pin);
@@ -165,9 +264,10 @@ void nextnote()
   while(isdigit(*buffer))
   {
     num = (num * 10) + (*buffer++ - '0');
+    bufferIndex++; 
   }
   
-  if(num) duration = wholenote / num;
+  if (num) duration = wholenote / num;
   else duration = wholenote / default_dur;  // we will need to check if we are a dotted note after
 
   // now get the note
@@ -201,12 +301,14 @@ void nextnote()
       note = 0;
   }
   buffer++;
+  bufferIndex++; 
 
   // now, get optional '#' sharp
   if(*buffer == '#')
   {
     note++;
     buffer++;
+    bufferIndex++; 
   }
 
   // now, get optional '.' dotted note
@@ -214,6 +316,7 @@ void nextnote()
   {
     duration += duration/2;
     buffer++;
+    bufferIndex++; 
   }
 
   // now, get scale
@@ -221,6 +324,7 @@ void nextnote()
   {
     scale = *buffer - '0';
     buffer++;
+    bufferIndex++; 
   }
   else
   {
@@ -231,6 +335,7 @@ void nextnote()
 
   if(*buffer == ',')
     buffer++;       // skip comma for next note (or we may be at the end)
+    bufferIndex++; 
 
   // now play the note
 
@@ -258,6 +363,7 @@ void nextnote()
     
     noteDelay = millis() + (duration);
   }
+  return 0;
 }
 
 void play()
@@ -266,7 +372,7 @@ void play()
   if (!playing)
   {
     #ifdef RTTTL_NONBLOCKING_DEBUG
-    Serial.println("done playing...");
+    //Serial.println("done playing...");
     #endif
     
     return;
@@ -277,16 +383,15 @@ void play()
   if (m < noteDelay)
   {
     #ifdef RTTTL_NONBLOCKING_DEBUG
-    Serial.println("still playing a note...");
+    //Serial.println("still playing a note...");
     #endif
     
     //wait until the note is completed
     return;
   }
 
-  //ready to play the next note
-  if (*buffer == '\0')
-  {
+  if (nextnote()!=0)
+  {  
     //no more notes. Reached the end of the last note
 
     #ifdef RTTTL_NONBLOCKING_DEBUG
@@ -299,28 +404,12 @@ void play()
 
     return; //end of the song
   }
-  else
-  {
-    //more notes to play...
-
-    #ifdef RTTTL_NONBLOCKING_DEBUG
-    Serial.println("next note...");
-    #endif
-    
-    nextnote();
-  }
 }
 
 void stop()
 {
   if (playing)
   {
-    //increase song buffer until the end
-    while (*buffer != '\0')
-    {
-      buffer++;
-    }
-
     //issue #6: Bug for ESP8266 environment - noTone() not called at end of sound.
     //disable sound if one abort playback using the stop() command.
     noTone(pin);

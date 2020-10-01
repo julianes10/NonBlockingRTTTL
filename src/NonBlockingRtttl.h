@@ -113,6 +113,9 @@
 //#define RTTTL_NONBLOCKING_DEBUG
 //#define RTTTL_NONBLOCKING_INFO
 
+
+#define MAX_RTTTL_LOCAL_BUFF 50
+
 namespace rtttl
 {
 
@@ -124,7 +127,9 @@ namespace rtttl
  *   iPin:        The pin which is connected to the piezo buffer.
  *   iSongBuffer: The string buffer of the RTTTL song.
  ****************************************************************************/
-void begin(byte iPin, const char * iSongBuffer);
+void begin(byte iPin, const char * iSongBuffer,bool flash=false);
+void beginF(byte iPin, const char * iSongBuffer);
+
 
 /****************************************************************************
  * Description:
