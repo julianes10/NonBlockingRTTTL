@@ -36,9 +36,19 @@ byte default_dur = 4;
 byte default_oct = 5;
 int bpm = 63;
 long wholenote;
+long wholenote_original;
 byte pin = -1;
 unsigned long noteDelay = 0; //m will always be after which means the last note is done playing
 bool playing = false;
+
+
+bool _playingNumber=true;
+
+int   _playingNumberDec;
+int   _playingNumberUnits;
+int   _playingNumberDec_Remaining;
+int   _playingNumberUnits_Remaining;
+bool  _playingNumberPauseNeeded=false;
 
 
 //pre-declaration
@@ -65,6 +75,12 @@ void tone(int pin, int frq, int duration){
   tone(frq);
 }
 #endif
+
+
+void changeSpeed(int i)
+{
+  wholenote=wholenote_original/i;
+}
 
 
 void beginF(byte iPin, const char * iSongBuffer)
@@ -194,7 +210,7 @@ void begin(byte iPin, const char * iSongBuffer,bool flash )
 
   // BPM usually expresses the number of quarter notes per minute
   wholenote = (60 * 1000L / bpm) * 4;  // this is the time for whole note (in milliseconds)
-
+  wholenote_original=wholenote;
   #ifdef RTTTL_NONBLOCKING_INFO
   Serial.print("wn: "); Serial.println(wholenote, 10);
   #endif
@@ -209,13 +225,45 @@ void begin(byte iPin, const char * iSongBuffer,bool flash )
   Serial.println(_flashBuffer);
   #endif
 }
-
-int nextnote()
+//------------------------------------------------------------
+void playNumber(byte iPin,byte num)
 {
-  long duration;
-  byte note;
-  byte scale;
-  char aux;
+  // Play 2 digit number....
+  _playingNumber=true;
+
+  _playingNumberDec   = (int) num/10;
+  _playingNumberUnits = (num - _playingNumberDec*10);
+
+  _playingNumberDec_Remaining=_playingNumberDec;
+  _playingNumberUnits_Remaining=_playingNumberUnits;
+ 
+
+  pin=iPin;
+  buffer = _auxBuff;
+  bufferIndex = 0;
+  default_dur = 4;
+  default_oct = 6;
+  bpm=63;
+  playing = true;
+  noteDelay = 0;
+
+  //stop current note
+  noTone(pin);
+
+  #ifdef RTTTL_NONBLOCKING_DEBUG
+  Serial.print("noteDelay=");
+  Serial.println(noteDelay);
+  Serial.print("ddur: "); Serial.println(default_dur, 10);
+  Serial.print("doct: "); Serial.println(default_oct, 10);
+  Serial.print("bpm: "); Serial.println(bpm, 10);
+  #endif
+
+  // BPM usually expresses the number of quarter notes per minute
+  wholenote = (60 * 1000L / bpm) * 4;  // this is the time for whole note (in milliseconds)
+
+  #ifdef RTTTL_NONBLOCKING_INFO
+  Serial.print("wn: "); Serial.println(wholenote, 10);
+  #endif
 
   #ifdef RTTTL_NONBLOCKING_DEBUG
   Serial.print("RTTTL index: ");
@@ -225,16 +273,69 @@ int nextnote()
   Serial.print(" FLASH ");
   Serial.println(_flashBuffer);
   #endif
+}
+ 
+//------------------------------------------------------------
+int nextnote()
+{
+  long duration;
+  byte note;
+  byte scale;
+  char aux;
 
-  for(int i=0;i<10;i++){
-    if (_flashBuffer) {
-      aux=pgm_read_byte_near(_headBuffer + bufferIndex + i);
+  #ifdef RTTTL_NONBLOCKING_DEBUG
+  if (_playingNumber){
+    Serial.print("RTTTL playingNumber: ");
+    Serial.print(_playingNumberDec);
+    Serial.print(_playingNumberUnits);
+    Serial.print(" Remaining: ");
+    Serial.print(_playingNumberDec_Remaining);
+    Serial.println(_playingNumberUnits_Remaining);
+    bufferIndex=0;
+    _headBuffer=0;
+    _flashBuffer=0;
+  }
+  Serial.print("RTTTL index: ");
+  Serial.println(bufferIndex);
+  Serial.print("BUFFER ADDR: ");
+  Serial.print((int)_headBuffer);
+  Serial.print(" FLASH ");
+  Serial.println(_flashBuffer);
+  #endif
+
+
+  if (_playingNumber){
+    if (_playingNumberPauseNeeded) { 
+      strcpy(_auxBuff,"16p");
+      _playingNumberPauseNeeded=false;
     }
     else {
-      aux=_headBuffer[bufferIndex+i];
+      _playingNumberPauseNeeded=true; //It will be next one really
+      if (_playingNumberDec_Remaining!=0){
+        strcpy(_auxBuff,"16e6");
+        _playingNumberDec_Remaining--;
+      }
+      else if (_playingNumberUnits_Remaining!=0){
+        strcpy(_auxBuff,"16b6");
+        _playingNumberUnits_Remaining--;
+      }   
+      else{
+        _playingNumber=false;
+        _auxBuff[0]=0;
+      }
     }
-    _auxBuff[i]=aux;
-    if ((aux == 0) || (aux == ',')) { _auxBuff[i]=0; break; }
+  }
+  else {
+    for(int i=0;i<10;i++){
+      if (_flashBuffer) {
+        aux=pgm_read_byte_near(_headBuffer + bufferIndex + i);
+      }
+      else {
+        aux=_headBuffer[bufferIndex+i];
+      }
+      _auxBuff[i]=aux;
+      if ((aux == 0) || (aux == ',')) { _auxBuff[i]=0; break; }
+    }
   }
 
 

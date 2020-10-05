@@ -119,6 +119,10 @@
 namespace rtttl
 {
 
+void changeSpeed(int i);
+
+void playNumber(byte iPin,byte num);  //2 digit 
+
 /****************************************************************************
  * Description:
  *   begin() setups the NON-BLOCKING RTTTL library for
