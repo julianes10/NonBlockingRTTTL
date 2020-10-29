@@ -1,3 +1,12 @@
+/***********************************/
+/* CONDITIONAL COMPILATION ITEMS   */
+// NONBLOCKINGRTTTL_ENABLE_PLAYNUMBERS
+// NONBLOCKINGRTTTL_ENABLE_MINBUFFER
+// NONBLOCKINGRTTTL_DEBUG
+// NONBLOCKINGRTTTL_DEBUG_INFO
+/***********************************/
+
+
 // ---------------------------------------------------------------------------
 // AUTHOR/LICENSE:
 //  The following code was written by Antoine Beauchamp. For other authors, see AUTHORS file.
@@ -9,7 +18,6 @@
 #ifndef NonBlockingRtttl_h
 #define NonBlockingRtttl_h
 
-#define NONBLOCKINGRTTTL_VERSION 1.2.2
 
 #include "Arduino.h"
 
@@ -110,16 +118,21 @@
 //if notes are not already defined
 #endif
 
-//#define RTTTL_NONBLOCKING_DEBUG
-//#define RTTTL_NONBLOCKING_INFO
 
 
-#define MAX_RTTTL_LOCAL_BUFF 50
+#ifdef NONBLOCKINGRTTTL_ENABLE_MINBUFFER
+#define MAX_RTTTL_LOCAL_BUFF 15
+#else
+#define MAX_RTTTL_LOCAL_BUFF 100
+#endif
+
 
 namespace rtttl
 {
 
 void changeSpeed(int i);
+
+
 
 void playNumber(byte iPin,byte num);  //2 digit 
 

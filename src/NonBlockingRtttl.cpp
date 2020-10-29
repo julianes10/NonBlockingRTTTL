@@ -42,14 +42,14 @@ unsigned long noteDelay = 0; //m will always be after which means the last note 
 bool playing = false;
 
 
-bool _playingNumber=true;
-
+#ifdef NONBLOCKINGRTTTL_ENABLE_PLAYNUMBERS
+bool  _playingNumber=true;
 int   _playingNumberDec;
 int   _playingNumberUnits;
 int   _playingNumberDec_Remaining;
 int   _playingNumberUnits_Remaining;
 bool  _playingNumberPauseNeeded=false;
-
+#endif
 
 //pre-declaration
 int  nextnote();
@@ -103,7 +103,7 @@ void begin(byte iPin, const char * iSongBuffer,bool flash )
     strncpy(_auxBuff,_headBuffer,MAX_RTTTL_LOCAL_BUFF-1);
   }    
 
-  #ifdef RTTTL_NONBLOCKING_DEBUG
+  #ifdef NONBLOCKINGRTTTL_DEBUG
   Serial.print("playing: ");
   Serial.print(_auxBuff);
   Serial.println("...");
@@ -130,7 +130,7 @@ void begin(byte iPin, const char * iSongBuffer,bool flash )
   bpm=63;
   playing = true;
   noteDelay = 0;
-  #ifdef RTTTL_NONBLOCKING_DEBUG
+  #ifdef NONBLOCKINGRTTTL_DEBUG
   Serial.print("noteDelay=");
   Serial.println(noteDelay);
   #endif
@@ -168,7 +168,7 @@ void begin(byte iPin, const char * iSongBuffer,bool flash )
     bufferIndex++; 
   }
 
-  #ifdef RTTTL_NONBLOCKING_INFO
+  #ifdef NONBLOCKINGRTTTL_DEBUG_INFO
   Serial.print("ddur: "); Serial.println(default_dur, 10);
   #endif
   
@@ -184,7 +184,7 @@ void begin(byte iPin, const char * iSongBuffer,bool flash )
     bufferIndex++; 
   }
 
-  #ifdef RTTTL_NONBLOCKING_INFO
+  #ifdef NONBLOCKINGRTTTL_DEBUG_INFO
   Serial.print("doct: "); Serial.println(default_oct, 10);
   #endif
   
@@ -204,19 +204,19 @@ void begin(byte iPin, const char * iSongBuffer,bool flash )
     bufferIndex++; 
   }
 
-  #ifdef RTTTL_NONBLOCKING_INFO
+  #ifdef NONBLOCKINGRTTTL_DEBUG_INFO
   Serial.print("bpm: "); Serial.println(bpm, 10);
   #endif
 
   // BPM usually expresses the number of quarter notes per minute
   wholenote = (60 * 1000L / bpm) * 4;  // this is the time for whole note (in milliseconds)
   wholenote_original=wholenote;
-  #ifdef RTTTL_NONBLOCKING_INFO
+  #ifdef NONBLOCKINGRTTTL_DEBUG_INFO
   Serial.print("wn: "); Serial.println(wholenote, 10);
   #endif
 
 
-  #ifdef RTTTL_NONBLOCKING_DEBUG
+  #ifdef NONBLOCKINGRTTTL_DEBUG
   Serial.print("RTTTL index: ");
   Serial.println(bufferIndex);
   Serial.print("BUFFER ADDR: ");
@@ -225,9 +225,12 @@ void begin(byte iPin, const char * iSongBuffer,bool flash )
   Serial.println(_flashBuffer);
   #endif
 }
+
+
 //------------------------------------------------------------
 void playNumber(byte iPin,byte num)
 {
+#ifdef NONBLOCKINGRTTTL_ENABLE_PLAYNUMBERS
   // Play 2 digit number....
   _playingNumber=true;
 
@@ -250,7 +253,7 @@ void playNumber(byte iPin,byte num)
   //stop current note
   noTone(pin);
 
-  #ifdef RTTTL_NONBLOCKING_DEBUG
+  #ifdef NONBLOCKINGRTTTL_DEBUG
   Serial.print("noteDelay=");
   Serial.println(noteDelay);
   Serial.print("ddur: "); Serial.println(default_dur, 10);
@@ -261,11 +264,11 @@ void playNumber(byte iPin,byte num)
   // BPM usually expresses the number of quarter notes per minute
   wholenote = (60 * 1000L / bpm) * 4;  // this is the time for whole note (in milliseconds)
 
-  #ifdef RTTTL_NONBLOCKING_INFO
+  #ifdef NONBLOCKINGRTTTL_DEBUG_INFO
   Serial.print("wn: "); Serial.println(wholenote, 10);
   #endif
 
-  #ifdef RTTTL_NONBLOCKING_DEBUG
+  #ifdef NONBLOCKINGRTTTL_DEBUG
   Serial.print("RTTTL index: ");
   Serial.println(bufferIndex);
   Serial.print("BUFFER ADDR: ");
@@ -273,8 +276,9 @@ void playNumber(byte iPin,byte num)
   Serial.print(" FLASH ");
   Serial.println(_flashBuffer);
   #endif
+#endif 
 }
- 
+
 //------------------------------------------------------------
 int nextnote()
 {
@@ -283,7 +287,8 @@ int nextnote()
   byte scale;
   char aux;
 
-  #ifdef RTTTL_NONBLOCKING_DEBUG
+  #ifdef NONBLOCKINGRTTTL_DEBUG
+#ifdef NONBLOCKINGRTTTL_ENABLE_PLAYNUMBERS
   if (_playingNumber){
     Serial.print("RTTTL playingNumber: ");
     Serial.print(_playingNumberDec);
@@ -295,6 +300,7 @@ int nextnote()
     _headBuffer=0;
     _flashBuffer=0;
   }
+#endif
   Serial.print("RTTTL index: ");
   Serial.println(bufferIndex);
   Serial.print("BUFFER ADDR: ");
@@ -303,8 +309,8 @@ int nextnote()
   Serial.println(_flashBuffer);
   #endif
 
-
-  if (_playingNumber){
+#ifdef NONBLOCKINGRTTTL_ENABLE_PLAYNUMBERS
+  if (_playingNumber) {
     if (_playingNumberPauseNeeded) { 
       strcpy(_auxBuff,"16p");
       _playingNumberPauseNeeded=false;
@@ -326,6 +332,9 @@ int nextnote()
     }
   }
   else {
+#else
+  if (true){
+#endif
     for(int i=0;i<10;i++){
       if (_flashBuffer) {
         aux=pgm_read_byte_near(_headBuffer + bufferIndex + i);
@@ -341,14 +350,14 @@ int nextnote()
 
   buffer=_auxBuff;
   if (_auxBuff[0]==0) {
-    #ifdef RTTTL_NONBLOCKING_DEBUG
+    #ifdef NONBLOCKINGRTTTL_DEBUG
     Serial.println("No more notes");
     #endif
     return -1;  //No more tones
   }  
 
 
-  #ifdef RTTTL_NONBLOCKING_DEBUG
+  #ifdef NONBLOCKINGRTTTL_DEBUG
   Serial.print("nextNote: ");
   Serial.print(_auxBuff);
   Serial.println("...");
@@ -434,15 +443,16 @@ int nextnote()
 
   scale += OCTAVE_OFFSET;
 
-  if(*buffer == ',')
+  if(*buffer == ','){
     buffer++;       // skip comma for next note (or we may be at the end)
     bufferIndex++; 
+  }
 
   // now play the note
 
   if(note)
   {
-    #ifdef RTTTL_NONBLOCKING_INFO
+    #ifdef NONBLOCKINGRTTTL_DEBUG_INFO
     Serial.print("Playing: ");
     Serial.print(scale, 10); Serial.print(' ');
     Serial.print(note, 10); Serial.print(" (");
@@ -457,7 +467,7 @@ int nextnote()
   }
   else
   {
-    #ifdef RTTTL_NONBLOCKING_INFO
+    #ifdef NONBLOCKINGRTTTL_DEBUG_INFO
     Serial.print("Pausing: ");
     Serial.println(duration, 10);
     #endif
@@ -466,13 +476,13 @@ int nextnote()
   }
   return 0;
 }
-
+//---------------------------------------------------------------------------
 void play()
 {
   //if done playing the song, return
   if (!playing)
   {
-    #ifdef RTTTL_NONBLOCKING_DEBUG
+    #ifdef NONBLOCKINGRTTTL_DEBUG
     //Serial.println("done playing...");
     #endif
     
@@ -483,7 +493,7 @@ void play()
   unsigned long m = millis();
   if (m < noteDelay)
   {
-    #ifdef RTTTL_NONBLOCKING_DEBUG
+    #ifdef NONBLOCKINGRTTTL_DEBUG
     //Serial.println("still playing a note...");
     #endif
     
@@ -495,7 +505,7 @@ void play()
   {  
     //no more notes. Reached the end of the last note
 
-    #ifdef RTTTL_NONBLOCKING_DEBUG
+    #ifdef NONBLOCKINGRTTTL_DEBUG
     Serial.println("end of note...");
     #endif
     
@@ -506,7 +516,7 @@ void play()
     return; //end of the song
   }
 }
-
+//-----------------------------------------------------------------------
 void stop()
 {
   if (playing)
@@ -518,12 +528,12 @@ void stop()
     playing = false;
   }
 }
-
+//-----------------------------------------------------------------------
 bool done()
 {
   return !playing;
 }
-
+//-----------------------------------------------------------------------
 bool isPlaying()
 {
   return playing;
