@@ -2,6 +2,7 @@
 /* CONDITIONAL COMPILATION ITEMS   */
 // NONBLOCKINGRTTTL_ENABLE_PLAYNUMBERS
 // NONBLOCKINGRTTTL_ENABLE_MINBUFFER
+// NONBLOCKINGRTTTL_ENABLE_NOTES_FLASH
 // NONBLOCKINGRTTTL_DEBUG
 // NONBLOCKINGRTTTL_DEBUG_INFO
 /***********************************/
@@ -121,7 +122,7 @@
 
 
 #ifdef NONBLOCKINGRTTTL_ENABLE_MINBUFFER
-#define MAX_RTTTL_LOCAL_BUFF 15
+#define MAX_RTTTL_LOCAL_BUFF 30
 #else
 #define MAX_RTTTL_LOCAL_BUFF 100
 #endif
@@ -131,9 +132,6 @@ namespace rtttl
 {
 
 void changeSpeed(int i);
-
-
-
 void playNumber(byte iPin,byte num);  //2 digit 
 
 /****************************************************************************
@@ -146,8 +144,6 @@ void playNumber(byte iPin,byte num);  //2 digit
  ****************************************************************************/
 void begin(byte iPin, const char * iSongBuffer,bool flash=false);
 void beginF(byte iPin, const char * iSongBuffer);
-
-
 /****************************************************************************
  * Description:
  *   play() automatically plays a new note when required.
@@ -156,13 +152,11 @@ void beginF(byte iPin, const char * iSongBuffer);
  *   disrupt the NON-BLOCKING RTTTL library from playing properly.
  ****************************************************************************/
 void play();
-
 /****************************************************************************
  * Description:
  *   stop() stops playing the current song.
  ****************************************************************************/
 void stop();
-
 /****************************************************************************
  * Description:
  *   isPlaying() return true when the library is playing

@@ -13,9 +13,12 @@
 
 namespace rtttl
 {
-
-
-const int notes[] = { 0,
+#ifdef NONBLOCKINGRTTTL_ENABLE_NOTES_FLASH
+const uint16_t notes[] PROGMEM = { 
+#else
+const uint16_t notes[] = { 
+#endif
+0,
 NOTE_C4, NOTE_CS4, NOTE_D4, NOTE_DS4, NOTE_E4, NOTE_F4, NOTE_FS4, NOTE_G4, NOTE_GS4, NOTE_A4, NOTE_AS4, NOTE_B4,
 NOTE_C5, NOTE_CS5, NOTE_D5, NOTE_DS5, NOTE_E5, NOTE_F5, NOTE_FS5, NOTE_G5, NOTE_GS5, NOTE_A5, NOTE_AS5, NOTE_B5,
 NOTE_C6, NOTE_CS6, NOTE_D6, NOTE_DS6, NOTE_E6, NOTE_F6, NOTE_FS6, NOTE_G6, NOTE_GS6, NOTE_A6, NOTE_AS6, NOTE_B6,
@@ -287,7 +290,7 @@ int nextnote()
   byte scale;
   char aux;
 
-  #ifdef NONBLOCKINGRTTTL_DEBUG
+#ifdef NONBLOCKINGRTTTL_DEBUG
 #ifdef NONBLOCKINGRTTTL_ENABLE_PLAYNUMBERS
   if (_playingNumber){
     Serial.print("RTTTL playingNumber: ");
@@ -307,7 +310,7 @@ int nextnote()
   Serial.print((int)_headBuffer);
   Serial.print(" FLASH ");
   Serial.println(_flashBuffer);
-  #endif
+#endif
 
 #ifdef NONBLOCKINGRTTTL_ENABLE_PLAYNUMBERS
   if (_playingNumber) {
@@ -443,25 +446,33 @@ int nextnote()
 
   scale += OCTAVE_OFFSET;
 
-  if(*buffer == ','){
-    buffer++;       // skip comma for next note (or we may be at the end)
-    bufferIndex++; 
-  }
+  //if(*buffer == ','){
+  //  buffer++;       
+  bufferIndex++; // skip comma for next note (or we may be at the end)
+ 
 
   // now play the note
 
   if(note)
   {
-    #ifdef NONBLOCKINGRTTTL_DEBUG_INFO
+    uint16_t theNote=0;
+    #ifdef NONBLOCKINGRTTTL_ENABLE_NOTES_FLASH
+       theNote=pgm_read_word_near(notes+((scale - 4) * 12 + note));
+    #else
+       theNote=notes[(scale - 4) * 12 + note];
+    #endif
+
+    #ifdef NONBLOCKINGRTTTL_DEBUG
     Serial.print("Playing: ");
     Serial.print(scale, 10); Serial.print(' ');
     Serial.print(note, 10); Serial.print(" (");
-    Serial.print(notes[(scale - 4) * 12 + note], 10);
+
+    Serial.print(theNote, 10);
     Serial.print(") ");
     Serial.println(duration, 10);
     #endif
     
-    tone(pin, notes[(scale - 4) * 12 + note], duration);
+    tone(pin,theNote, duration);
     
     noteDelay = millis() + (duration+1);
   }
